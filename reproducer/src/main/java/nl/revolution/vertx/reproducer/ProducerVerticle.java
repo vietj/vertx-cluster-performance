@@ -17,20 +17,34 @@ public class ProducerVerticle extends AbstractVerticle {
     public void start() throws Exception {
         System.out.println("Starting " + this.getClass().getSimpleName());
         start = System.currentTimeMillis();
-
         System.out.println("Starting to send messages.");
-        IntStream.range(0, NUM_MESSAGES).forEach(i -> {
-            if (i % 20000 == 0) {
-                System.out.println(i + " eventbus messages sent in " + (System.currentTimeMillis() - start) + " ms.");
+        sendMessage(0, 1000);
+    }
+
+    private void sendMessage(int sent, int batchSize) {
+        int count = 0;
+        while (true) {
+            if (sent < NUM_MESSAGES) {
+                if (count < batchSize) {
+                    vertx.eventBus().send(
+                        ConsumerVerticle.ADDRESS,
+                        "dummy message",
+                        this::onReply);
+                    count++;
+                    sent++;
+                    if (sent % 20000 == 0) {
+                        System.out.println(sent + " eventbus messages sent in " + (System.currentTimeMillis() - start) + " ms.");
+                    }
+                } else {
+                    int val = sent;
+                    vertx.runOnContext(v -> sendMessage(val, batchSize));
+                    break;
+                }
+            } else {
+                System.out.println(NUM_MESSAGES + " eventbus messages sent in " + (System.currentTimeMillis() - start) + " ms.");
+                break;
             }
-
-            vertx.eventBus().send(
-                    ConsumerVerticle.ADDRESS,
-                    "dummy message",
-                    this::onReply);
-        });
-        System.out.println(NUM_MESSAGES + " eventbus messages sent in " + (System.currentTimeMillis() - start) + " ms.");
-
+        }
     }
 
     private void onReply(AsyncResult<Message<Object>> reply) {
